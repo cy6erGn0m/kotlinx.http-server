@@ -3,7 +3,7 @@ package kotlinx.http.server
 import kotlinx.sockets.channels.*
 import java.nio.*
 
-internal class HttpParser(val parseBuffer: ByteBuffer, val headersBuffer: ByteBuffer) {
+class HttpParser(val parseBuffer: ByteBuffer, val headersBuffer: ByteBuffer) {
     private var state = State.Method
     private val headersBody: ByteArrayBuilder = ByteArrayBuilder(headersBuffer.array())
     private val headers = ArrayList<HeaderEntry>(16)
