@@ -31,9 +31,6 @@ class HttpParser(val parseBuffer: ByteBuffer, val headersBuffer: ByteBuffer) {
                     State.Version -> parseVersion()
                     State.Headers -> parseHeader()
                     State.Body -> {
-                        if (expectedBody) TODO()
-
-                        parseBuffer.compact()
                         break@readLoop
                     }
                 }

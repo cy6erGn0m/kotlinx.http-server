@@ -51,9 +51,11 @@ fun runServer(port: Int = 8080, handler: suspend (HttpRequest, ReadWriteSocket) 
 private suspend fun handleClient(client: Socket, handler: suspend (HttpRequest, ReadWriteSocket) -> Unit) {
     val bb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
     val hb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
+    bb.flip()
 
     try {
         loop@ while (true) {
+            bb.compact()
             val parser = HttpParser(bb, hb)
             val request = withTimeoutOrNull(10L, TimeUnit.SECONDS) { parser.parse(client) } ?: break@loop
 
