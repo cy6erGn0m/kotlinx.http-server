@@ -14,7 +14,7 @@ private val buffersCount = 100000
 private val bufferPool = ArrayBlockingQueue<ByteBuffer>(buffersCount)
 
 fun main(args: Array<String>) {
-    runServer() { request, socket ->
+    runServer() { request, socket, _ ->
         val keepAlive = request.headerFirst("Connection")?.value(request.headersBody) ?: defaultConnectionForVersion(request.version)
 
         when {
@@ -25,7 +25,7 @@ fun main(args: Array<String>) {
     }
 }
 
-fun runServer(port: Int = 8080, handler: suspend (HttpRequest, ReadWriteSocket) -> Unit) {
+fun runServer(port: Int = 8080, handler: suspend (HttpRequest, ReadWriteSocket, ByteBuffer) -> Unit) {
     for (i in 1..buffersCount) {
         bufferPool.put(ByteBuffer.allocate(bufferSize))
     }
@@ -48,7 +48,7 @@ fun runServer(port: Int = 8080, handler: suspend (HttpRequest, ReadWriteSocket) 
     }
 }
 
-private suspend fun handleClient(client: Socket, handler: suspend (HttpRequest, ReadWriteSocket) -> Unit) {
+private suspend fun handleClient(client: Socket, handler: suspend (HttpRequest, ReadWriteSocket, ByteBuffer) -> Unit) {
     val bb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
     val hb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
     bb.flip()
@@ -59,7 +59,7 @@ private suspend fun handleClient(client: Socket, handler: suspend (HttpRequest, 
             val parser = HttpParser(bb, hb)
             val request = withTimeoutOrNull(10L, TimeUnit.SECONDS) { parser.parse(client) } ?: break@loop
 
-            handler(request, client)
+            handler(request, client, bb)
         }
     } finally {
         bufferPool.offer(bb)
