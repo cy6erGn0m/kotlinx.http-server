@@ -1,7 +1,11 @@
 package kotlinx.http.server
 
 import kotlinx.coroutines.experimental.*
+import kotlinx.coroutines.experimental.channels.*
 import java.nio.*
+
+private val bufferSize = 8192
+private val buffersCount = 100000
 
 fun main(args: Array<String>) {
     val OK = "OK".toByteArray()
@@ -10,7 +14,15 @@ fun main(args: Array<String>) {
     val HelloWorld = ByteBuffer.wrap("Hello, World\r\n".toByteArray())
     val HelloWorldLength = HelloWorld.remaining().toString()
 
-    val j = runServer(handler = object : RequestHandler {
+    val bufferPool = Channel<ByteBuffer>(buffersCount)
+
+    launch(CommonPool) {
+        for (i in 1..buffersCount) {
+            bufferPool.offer(ByteBuffer.allocate(bufferSize))
+        }
+    }
+
+    val j = runServer(bufferPool = bufferPool, handler = object : RequestHandler {
         suspend override fun handle(request: HttpRequest, session: Session) {
             when {
                 request.method != HttpMethod.Get -> {

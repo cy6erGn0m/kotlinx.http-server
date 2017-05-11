@@ -14,18 +14,8 @@ import java.nio.*
 import java.nio.channels.*
 import kotlin.coroutines.experimental.*
 
-private val bufferSize = 8192
-private val buffersCount = 100000
-
-fun runServer(context: CoroutineContext = CommonPool, port: Int = 8080, handler: RequestHandler): Job {
-    val bufferPool = Channel<ByteBuffer>(buffersCount)
+fun runServer(context: CoroutineContext = CommonPool, port: Int = 8080, bufferPool: Channel<ByteBuffer>, handler: RequestHandler): Job {
     val selector = ExplicitSelectorManager()
-
-    launch(context) {
-        for (i in 1..buffersCount) {
-            bufferPool.offer(ByteBuffer.allocate(bufferSize))
-        }
-    }
 
     return launch(context) {
         aSocket(selector).tcp().bind(InetSocketAddress(port)).use { server ->
@@ -77,9 +67,9 @@ private class SessionImpl(pool: Channel<ByteBuffer>, destination: WriteChannel) 
 }
 
 private suspend fun handleClient(client: Socket, handler: RequestHandler, bufferPool: Channel<ByteBuffer>) {
-    val bb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
-    val hb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
-    val rb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
+    val bb = bufferPool.poll() ?: ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
+    val hb = bufferPool.poll() ?: ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
+    val rb = bufferPool.poll() ?: ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
     bb.clear().flip()
 
     val session = SessionImpl(bufferPool, client)
