@@ -12,6 +12,7 @@ import java.io.*
 import java.net.*
 import java.nio.*
 import java.nio.channels.*
+import java.util.concurrent.CancellationException
 import kotlin.coroutines.experimental.*
 
 fun runServer(context: CoroutineContext = CommonPool, port: Int = 8080, bufferPool: Channel<ByteBuffer>, handler: RequestHandler): Job {
@@ -27,6 +28,8 @@ fun runServer(context: CoroutineContext = CommonPool, port: Int = 8080, bufferPo
                             handleClient(client, handler, bufferPool)
                         }
                     }
+                } catch (cancelled: CancellationException) {
+                    break
                 } catch (e: ClosedChannelException) {
                     break
                 } catch (e: Throwable) {
@@ -78,7 +81,13 @@ private suspend fun handleClient(client: Socket, handler: RequestHandler, buffer
         loop@ while (true) {
             bb.compact()
             val parser = HttpParser(bb, hb)
-            val request = try { parser.parse(client) } catch (e: IOException) { null } ?: break@loop
+            val request = try {
+                parser.parse(client)
+            } catch (e: IOException) {
+                null
+            } catch (cancelled: CancellationException) {
+                null
+            } ?: break@loop
             session.body = when {
                 !request.method.bodyExpected -> EmptyReadChannel
                 request.isChunked() -> ChunkedRequestReadChannel(client, bb)

@@ -47,11 +47,15 @@ fun main(args: Array<String>) {
                     val connection = request.headerValueFirst("Connection") ?: defaultConnectionForVersion(request.version)
 
                     session.status(200, OK)
-                    session.header("Content-Length", HelloWorldLength)
+//                    session.header("Content-Length", HelloWorldLength)
+                    session.header("Transfer-Encoding", "chunked")
                     session.header("Connection", connection)
                     session.commit()
-                    session.rawOutput.write(HelloWorld.duplicate())
-                    session.flush()
+                    session.chunkedOutput().apply {
+                        write(HelloWorld.duplicate())
+                        write(HelloWorld.duplicate())
+                        shutdownOutput()
+                    }
                 }
             }
         }
