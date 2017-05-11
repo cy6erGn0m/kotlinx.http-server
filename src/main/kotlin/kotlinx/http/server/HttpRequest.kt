@@ -17,4 +17,6 @@ class HttpRequest(val method: HttpMethod, val uri: String, val version: HttpVers
             it.nameHash == h && equalsIgnoreCase(headersBody, it.nameStart, it.nameLength, name)
         }
     }
+
+    fun headerValueFirst(name: String): String? = headerFirst(name)?.value(headersBody)
 }

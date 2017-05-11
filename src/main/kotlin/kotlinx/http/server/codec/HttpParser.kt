@@ -1,5 +1,6 @@
-package kotlinx.http.server
+package kotlinx.http.server.codec
 
+import kotlinx.http.server.*
 import kotlinx.sockets.channels.*
 import java.nio.*
 

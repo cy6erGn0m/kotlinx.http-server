@@ -1,5 +1,6 @@
 package kotlinx.http.server
 
+import kotlinx.sockets.channels.*
 import java.nio.*
 
 internal fun ByteArray.stringOf(start: Int, length: Int): String {
@@ -80,4 +81,8 @@ internal fun equalsIgnoreCase(bb: ByteArray, start: Int, length: Int, s: String)
     }
 
     return true
+}
+
+object EmptyReadChannel : ReadChannel {
+    suspend override fun read(dst: ByteBuffer): Int = -1
 }
