@@ -12,24 +12,29 @@ import java.io.*
 import java.net.*
 import java.nio.*
 import java.nio.channels.*
+import kotlin.coroutines.experimental.*
 
 private val bufferSize = 8192
 private val buffersCount = 100000
-private val bufferPool = Channel<ByteBuffer>(buffersCount)
 
-fun runServer(port: Int = 8080, handler: RequestHandler): Job {
-    return launch(CommonPool) {
+fun runServer(context: CoroutineContext = CommonPool, port: Int = 8080, handler: RequestHandler): Job {
+    val bufferPool = Channel<ByteBuffer>(buffersCount)
+    val selector = ExplicitSelectorManager()
+
+    launch(context) {
         for (i in 1..buffersCount) {
             bufferPool.offer(ByteBuffer.allocate(bufferSize))
         }
+    }
 
-        aSocket(ExplicitSelectorManager()).tcp().bind(InetSocketAddress(port)).use { server ->
+    return launch(context) {
+        aSocket(selector).tcp().bind(InetSocketAddress(port)).use { server ->
             while (true) {
                 try {
                     val client = server.accept()
-                    launch(CommonPool) {
+                    launch(context) {
                         client.use {
-                            handleClient(client, handler)
+                            handleClient(client, handler, bufferPool)
                         }
                     }
                 } catch (e: ClosedChannelException) {
@@ -39,13 +44,21 @@ fun runServer(port: Int = 8080, handler: RequestHandler): Job {
                 }
             }
         }
+    }.apply {
+        disposeOnCompletion(selector)
+        invokeOnCompletion {
+            while (true) {
+                bufferPool.poll() ?: break
+            }
+
+            bufferPool.close()
+        }
     }
 }
 
 interface RequestHandler {
     suspend fun handle(request: HttpRequest, session: Session)
 }
-
 
 private class SessionImpl(pool: Channel<ByteBuffer>, destination: WriteChannel) : Session {
     var body: ReadChannel = EmptyReadChannel
@@ -63,7 +76,7 @@ private class SessionImpl(pool: Channel<ByteBuffer>, destination: WriteChannel) 
     }
 }
 
-private suspend fun handleClient(client: Socket, handler: RequestHandler) {
+private suspend fun handleClient(client: Socket, handler: RequestHandler, bufferPool: Channel<ByteBuffer>) {
     val bb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
     val hb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
     val rb = bufferPool.poll() ?: ByteBuffer.allocate(bufferSize)
